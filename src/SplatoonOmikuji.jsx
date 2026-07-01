@@ -628,16 +628,31 @@ function MachineStage({ phase, onDraw }) {
     // 每个球的目标位置/旋转
     const tgt = balls.map(() => ({ x: 0, y: 0, rot: 0 }));
 
+    // 预分底层球索引，保证底层始终铺满
+    const bottomIdx = []; // 原始 y >= 78 的视为底层
+    for (let j = 0; j < N; j++) if (balls[j].cy >= 78) bottomIdx.push(j);
+
     function randTarget(i) {
       const origY = balls[i].cy;
-      // y：以原始位置为中心，往下可以多偏一点（重力沉底），往上最多冲一点
-      const yOffset = (Math.random() - 0.35) * 30; // 偏向下移
-      const y = Math.max(40, Math.min(97, origY + yOffset));
-      return {
-        x: 8 + Math.random() * 84,
-        y,
-        rot: (Math.random() - 0.5) * 720,
-      };
+      const isBottom = bottomIdx.includes(i);
+      let x, y;
+
+      if (isBottom) {
+        // 底层球：按序均匀铺满底部宽度 + 轻微抖动，y 锁在底部
+        const rank = bottomIdx.indexOf(i);
+        const slotW = 90 / bottomIdx.length;
+        const slotCenter = 5 + (rank + 0.5) * slotW;
+        x = slotCenter + (Math.random() - 0.5) * slotW * 0.7;
+        y = 84 + Math.random() * 13; // 84-97%，牢牢在底部
+      } else {
+        // 上层球：左右移动，y 偏向下沉
+        x = 12 + Math.random() * 76;
+        const yOffset = (Math.random() - 0.35) * 28;
+        y = Math.max(50, Math.min(95, origY + yOffset));
+      }
+      // 自转幅度远小于位移幅度，模拟滚动而非飞速旋转
+      const rot = (Math.random() - 0.5) * 60;
+      return { x, y, rot };
     }
     for (let i = 0; i < N; i++) Object.assign(tgt[i], randTarget(i));
 
