@@ -5,5 +5,5 @@ import react from "@vitejs/plugin-react";
 // 把 base 改成 "/cyber-omikuji/"。用自定义域名或根路径则保持 "/"。
 export default defineConfig({
   plugins: [react()],
-  base: "./",
+  base: "Splatoon-3-Cyber-Fortune-Telling-3d/",
 });
