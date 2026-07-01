@@ -629,9 +629,13 @@ function MachineStage({ phase, onDraw }) {
     const tgt = balls.map(() => ({ x: 0, y: 0, rot: 0 }));
 
     function randTarget(i) {
+      const origY = balls[i].cy;
+      // y：以原始位置为中心，往下可以多偏一点（重力沉底），往上最多冲一点
+      const yOffset = (Math.random() - 0.35) * 30; // 偏向下移
+      const y = Math.max(40, Math.min(97, origY + yOffset));
       return {
-        x: 12 + Math.random() * 76,
-        y: 20 + Math.random() * 75,
+        x: 8 + Math.random() * 84,
+        y,
         rot: (Math.random() - 0.5) * 720,
       };
     }
