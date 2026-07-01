@@ -1,0 +1,21 @@
+{
+  "name": "cyber-omikuji",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "赛博求签机 — 以 Splatoon3 大厅扭蛋机为灵感的每日运势求签 web app（打工 / 真格 / X赛）",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "three": "^0.160.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.1",
+    "vite": "^5.4.2"
+  }
+}
