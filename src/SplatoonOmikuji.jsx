@@ -616,6 +616,73 @@ function MachineStage({ phase, onDraw }) {
   const spinning = phase === STATE.SPINNING;
   // 固定一批球（用固定种子，保证每次待机摆放一致）
   const balls = useMemo(() => makeBalls(mulberry32(20260701), 16), []);
+  const ballRefs = useRef([]);
+  const animRef = useRef(null);
+
+  // 抽签时：用 rAF 驱动球的随机运动（位移 + 自转 + z-index 随机洗牌）
+  useEffect(() => {
+    if (!spinning) return;
+    const N = balls.length;
+    // 每个球的当前实际位置/旋转
+    const cur = balls.map(b => ({ x: b.cx, y: b.cy, rot: 0 }));
+    // 每个球的目标位置/旋转
+    const tgt = balls.map(() => ({ x: 0, y: 0, rot: 0 }));
+
+    function randTarget(i) {
+      return {
+        x: 12 + Math.random() * 76,
+        y: 20 + Math.random() * 75,
+        rot: (Math.random() - 0.5) * 720,
+      };
+    }
+    for (let i = 0; i < N; i++) Object.assign(tgt[i], randTarget(i));
+
+    let lastRetarget = 0;
+    const t0 = performance.now();
+    const SPIN_MS = 2000; // 与 handleDraw 2200ms 留 200ms 余量
+
+    function tick(now) {
+      const elapsed = now - t0;
+      if (elapsed > SPIN_MS) return; // 停止驱动，交由 phase 切换卸载组件
+
+      // 强度随时间衰减，模拟球逐渐"沉底"
+      const progress = Math.min(elapsed / SPIN_MS, 1);
+      const intensity = 1 - progress * progress;
+
+      // 每隔 100~180ms 刷新一批随机目标
+      if (now - lastRetarget > 100 + Math.random() * 80) {
+        lastRetarget = now;
+        for (let i = 0; i < N; i++) {
+          const r = randTarget(i);
+          // 目标在「随机位置」与「原始位置」之间插值
+          tgt[i].x = balls[i].cx + (r.x - balls[i].cx) * intensity;
+          tgt[i].y = balls[i].cy + (r.y - balls[i].cy) * intensity;
+          tgt[i].rot = r.rot * intensity;
+        }
+      }
+
+      // lerp 跟踪目标
+      const lerp = 0.14;
+      for (let i = 0; i < N; i++) {
+        const el = ballRefs.current[i];
+        if (!el) continue;
+        cur[i].x += (tgt[i].x - cur[i].x) * lerp;
+        cur[i].y += (tgt[i].y - cur[i].y) * lerp;
+        cur[i].rot += (tgt[i].rot - cur[i].rot) * lerp;
+        el.style.left = `${cur[i].x}%`;
+        el.style.top = `${cur[i].y}%`;
+        el.style.transform = `translate(-50%,-50%) rotate(${cur[i].rot}deg)`;
+        // 随机 z-index，让球互相遮挡/被遮挡
+        el.style.zIndex = Math.floor(Math.random() * N);
+      }
+      animRef.current = requestAnimationFrame(tick);
+    }
+
+    animRef.current = requestAnimationFrame(tick);
+    return () => {
+      if (animRef.current) cancelAnimationFrame(animRef.current);
+    };
+  }, [spinning, balls]);
 
   return (
     <div className="omk-stage">
@@ -625,9 +692,10 @@ function MachineStage({ phase, onDraw }) {
 
         {/* 玻璃罩内的球（真实球图，叠在机身图之上，再由玻璃反光叠层压住做出景深） */}
         <div className="dome-balls">
-          {balls.map((b) => (
+          {balls.map((b, i) => (
             <img
               key={b.id}
+              ref={el => { ballRefs.current[i] = el; }}
               className="ball-img"
               src={b.img}
               alt=""
@@ -636,11 +704,7 @@ function MachineStage({ phase, onDraw }) {
                 left: `${b.cx}%`,
                 top: `${b.cy}%`,
                 width: `${b.size}%`,
-                "--dur": `${b.dur}s`,
-                "--delay": `${b.delay}s`,
-                "--cx": `${b.churnX * b.churnAmp}px`,
-                "--cy": `${b.churnY * b.churnAmp}px`,
-                "--spin": b.selfSpin,
+                animationDelay: `${b.delay}s`,
               }}
             />
           ))}
@@ -834,26 +898,17 @@ function StyleTag() {
     .ball-img{
       position:absolute; transform:translate(-50%,-50%);
       filter:drop-shadow(0 2px 4px rgba(0,0,0,.35));
-      will-change:transform; user-select:none; pointer-events:none;
+      will-change:transform,left,top; user-select:none; pointer-events:none;
     }
     /* 待机时：球堆在底部，几乎不动，仅极轻微的呼吸感（像堆稳了） */
-    .ball-img{ animation:ballSettle 3.5s ease-in-out infinite; animation-delay:var(--delay); }
+    .ball-img{ animation:ballSettle 3.5s ease-in-out infinite; }
     @keyframes ballSettle{
       0%,100%{ transform:translate(-50%,-50%) translateY(0) rotate(0deg); }
-      50%{ transform:translate(-50%,-50%) translateY(-1px) rotate(calc(var(--spin) * 3deg)); }
+      50%{ transform:translate(-50%,-50%) translateY(-1px) rotate(2deg); }
     }
-    /* 抽签时：球在罩底剧烈搅动翻腾（原地抖动位移+自转），像被拨杆搅动 */
+    /* 抽签时：关闭 CSS 动画，由 JS rAF 接管球的随机运动 */
     .machine.spin .ball-img{
-      animation:ballChurn var(--dur) ease-in-out infinite;
-      animation-delay:var(--delay);
-    }
-    @keyframes ballChurn{
-      0%{ transform:translate(-50%,-50%) translate(0,0) rotate(0deg); }
-      20%{ transform:translate(-50%,-50%) translate(var(--cx), calc(var(--cy) * -1)) rotate(calc(var(--spin) * 40deg)); }
-      45%{ transform:translate(-50%,-50%) translate(calc(var(--cx) * -0.7), var(--cy)) rotate(calc(var(--spin) * -30deg)); }
-      65%{ transform:translate(-50%,-50%) translate(calc(var(--cx) * 0.5), calc(var(--cy) * -0.6)) rotate(calc(var(--spin) * 55deg)); }
-      85%{ transform:translate(-50%,-50%) translate(calc(var(--cx) * -0.4), calc(var(--cy) * 0.3)) rotate(calc(var(--spin) * -20deg)); }
-      100%{ transform:translate(-50%,-50%) translate(0,0) rotate(0deg); }
+      animation:none !important;
     }
 
     /* 玻璃反光叠层：压在球之上，制造"球在玻璃罩里"的景深 */
