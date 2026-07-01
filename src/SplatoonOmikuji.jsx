@@ -817,12 +817,8 @@ function StyleTag() {
       transform-origin:center bottom;
       filter:drop-shadow(0 20px 30px rgba(0,0,0,.5));
     }
-    .machine.spin{ animation:machShake .3s ease-in-out infinite; }
-    @keyframes machShake{
-      0%,100%{ transform:rotate(0deg) translateY(0); }
-      25%{ transform:rotate(-1.6deg) translateY(-2px); }
-      75%{ transform:rotate(1.6deg) translateY(1px); }
-    }
+    /* 扭蛋机本体不晃动，仅球在搅动 */
+    .machine.spin{ /* no machine shake — balls churn only */ }
     .machine-img{
       position:relative; z-index:2; width:100%; height:100%;
       object-fit:contain; pointer-events:none; user-select:none;
